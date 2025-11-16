@@ -243,18 +243,7 @@ export default function BookClubTracker() {
   };
 
   const addReview = async () => {
-    // Calculer la moyenne des 4 notes
-    const averageRating = (
-      newReview.styleRating + 
-      newReview.intrigueRating + 
-      newReview.charactersRating + 
-      newReview.impactRating
-    ) / 4;
-
-    if (!newReview.member || averageRating <= 0) {
-      alert('Veuillez sélectionner un membre et donner au moins une note');
-      return;
-    }
+    if (!newReview.member || newReview.rating <= 0) return;
 
     try {
       const { data, error } = await supabase
@@ -262,12 +251,7 @@ export default function BookClubTracker() {
         .insert([{ 
           book_id: selectedBook.id, 
           member: newReview.member, 
-          rating: averageRating,
-          style_rating: newReview.styleRating,
-          intrigue_rating: newReview.intrigueRating,
-          characters_rating: newReview.charactersRating,
-          impact_rating: newReview.impactRating,
-          reading_time: newReview.readingTime,
+          rating: newReview.rating, 
           comment: newReview.comment 
         }])
         .select().single();
@@ -277,54 +261,33 @@ export default function BookClubTracker() {
       const updatedBooks = books.map(b => b.id === selectedBook.id ? updatedBook : b);
       setBooks(updatedBooks);
       setSelectedBook(updatedBook);
-      setNewReview({ 
-        member: '', 
-        styleRating: 0, 
-        intrigueRating: 0, 
-        charactersRating: 0, 
-        impactRating: 0,
-        readingTime: '',
-        comment: '' 
-      });
+      setNewReview({ member: '', rating: 0, comment: '' });
       setShowAddReview(false);
     } catch (error) {
       console.error('Erreur:', error);
     }
   };
 
-  const deleteReview = async (reviewId) => {
-    if (!confirm('Supprimer cet avis ?')) return;
-    
-    try {
-      const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
-      if (error) throw error;
-      
-      const updatedBook = { 
-        ...selectedBook, 
-        reviews: selectedBook.reviews.filter(r => r.id !== reviewId) 
-      };
-      const updatedBooks = books.map(b => b.id === selectedBook.id ? updatedBook : b);
-      setBooks(updatedBooks);
-      setSelectedBook(updatedBook);
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
+  const addQuote = async () => {
+    if (!newQuote.member || !newQuote.text.trim()) return;
 
-  const deleteQuote = async (quoteId) => {
-    if (!confirm('Supprimer cette citation ?')) return;
-    
     try {
-      const { error } = await supabase.from('quotes').delete().eq('id', quoteId);
+      const { data, error } = await supabase
+        .from('quotes')
+        .insert([{ 
+          book_id: selectedBook.id, 
+          member: newQuote.member, 
+          text: newQuote.text 
+        }])
+        .select().single();
+
       if (error) throw error;
-      
-      const updatedBook = { 
-        ...selectedBook, 
-        quotes: selectedBook.quotes.filter(q => q.id !== quoteId) 
-      };
+      const updatedBook = { ...selectedBook, quotes: [...selectedBook.quotes, data] };
       const updatedBooks = books.map(b => b.id === selectedBook.id ? updatedBook : b);
       setBooks(updatedBooks);
       setSelectedBook(updatedBook);
+      setNewQuote({ member: '', text: '' });
+      setShowAddQuote(false);
     } catch (error) {
       console.error('Erreur:', error);
     }
@@ -608,41 +571,7 @@ export default function BookClubTracker() {
                         className="bg-pink-50 p-4 rounded-2xl mb-2 cursor-pointer hover:shadow-md"
                       >
                         <p className="font-bold text-gray-800 mb-1">{review.bookTitle}</p>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Star size={16} className="fill-pink-400 text-pink-400" />
-                          <span className="font-bold text-pink-600">{review.rating.toFixed(1)}/10</span>
-                          {review.reading_time && (
-                            <span className="text-xs text-gray-500">⏱️ {review.reading_time}</span>
-                          )}
-                        </div>
-                        {(review.style_rating || review.intrigue_rating || review.characters_rating || review.impact_rating) && (
-                          <div className="grid grid-cols-4 gap-1 text-xs mb-2">
-                            {review.style_rating > 0 && (
-                              <div className="bg-white p-1 rounded text-center">
-                                <p className="text-gray-500 text-[10px]">Écriture</p>
-                                <p className="font-semibold text-pink-600">{review.style_rating}</p>
-                              </div>
-                            )}
-                            {review.intrigue_rating > 0 && (
-                              <div className="bg-white p-1 rounded text-center">
-                                <p className="text-gray-500 text-[10px]">Intrigue</p>
-                                <p className="font-semibold text-pink-600">{review.intrigue_rating}</p>
-                              </div>
-                            )}
-                            {review.characters_rating > 0 && (
-                              <div className="bg-white p-1 rounded text-center">
-                                <p className="text-gray-500 text-[10px]">Perso</p>
-                                <p className="font-semibold text-pink-600">{review.characters_rating}</p>
-                              </div>
-                            )}
-                            {review.impact_rating > 0 && (
-                              <div className="bg-white p-1 rounded text-center">
-                                <p className="text-gray-500 text-[10px]">Impact</p>
-                                <p className="font-semibold text-pink-600">{review.impact_rating}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <StarRating rating={review.rating} readonly />
                         {review.comment && <p className="text-sm mt-2">{review.comment}</p>}
                       </div>
                     ))}
@@ -754,44 +683,8 @@ export default function BookClubTracker() {
                       <div key={i} className="bg-pink-50 p-4 rounded-2xl mb-2">
                         <div className="flex justify-between mb-2">
                           <p className="font-bold">{r.member}</p>
-                          <div className="text-right">
-                            <div className="flex items-center gap-2 justify-end">
-                              <Star size={16} className="fill-pink-400 text-pink-400" />
-                              <span className="font-bold text-pink-600">{r.rating.toFixed(1)}/10</span>
-                            </div>
-                            {r.reading_time && (
-                              <p className="text-xs text-gray-500 mt-1">⏱️ {r.reading_time}</p>
-                            )}
-                          </div>
+                          <StarRating rating={r.rating} readonly />
                         </div>
-                        {(r.style_rating || r.intrigue_rating || r.characters_rating || r.impact_rating) && (
-                          <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                            {r.style_rating > 0 && (
-                              <div className="bg-white p-2 rounded-lg">
-                                <p className="text-gray-600">Écriture</p>
-                                <p className="font-semibold text-pink-600">{r.style_rating}/10</p>
-                              </div>
-                            )}
-                            {r.intrigue_rating > 0 && (
-                              <div className="bg-white p-2 rounded-lg">
-                                <p className="text-gray-600">Intrigue</p>
-                                <p className="font-semibold text-pink-600">{r.intrigue_rating}/10</p>
-                              </div>
-                            )}
-                            {r.characters_rating > 0 && (
-                              <div className="bg-white p-2 rounded-lg">
-                                <p className="text-gray-600">Personnages</p>
-                                <p className="font-semibold text-pink-600">{r.characters_rating}/10</p>
-                              </div>
-                            )}
-                            {r.impact_rating > 0 && (
-                              <div className="bg-white p-2 rounded-lg">
-                                <p className="text-gray-600">Impact</p>
-                                <p className="font-semibold text-pink-600">{r.impact_rating}/10</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
                         {r.comment && <p className="text-sm">{r.comment}</p>}
                       </div>
                     ))}
@@ -939,7 +832,7 @@ export default function BookClubTracker() {
 
       {showAddReview && selectedBook && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold mb-6">Ajouter un avis</h2>
             <div className="space-y-4">
               <select 
@@ -950,61 +843,10 @@ export default function BookClubTracker() {
                 <option value="">Sélectionner un membre</option>
                 {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
               </select>
-
               <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">Temps de lecture</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: 2 semaines, 5 jours..." 
-                  value={newReview.readingTime} 
-                  onChange={(e) => setNewReview({...newReview, readingTime: e.target.value})} 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
-                />
+                <p className="text-sm mb-2">Note sur 10</p>
+                <StarRating rating={newReview.rating} onRate={(r) => setNewReview({...newReview, rating: r})} />
               </div>
-
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-semibold text-gray-700">1) Écriture & style</p>
-                    <span className="text-pink-600 font-bold">{newReview.styleRating}/10</span>
-                  </div>
-                  <StarRating rating={newReview.styleRating} onRate={(r) => setNewReview({...newReview, styleRating: r})} />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-semibold text-gray-700">2) Intrigue & structure de l'histoire</p>
-                    <span className="text-pink-600 font-bold">{newReview.intrigueRating}/10</span>
-                  </div>
-                  <StarRating rating={newReview.intrigueRating} onRate={(r) => setNewReview({...newReview, intrigueRating: r})} />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-semibold text-gray-700">3) Personnages</p>
-                    <span className="text-pink-600 font-bold">{newReview.charactersRating}/10</span>
-                  </div>
-                  <StarRating rating={newReview.charactersRating} onRate={(r) => setNewReview({...newReview, charactersRating: r})} />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-semibold text-gray-700">4) Impact & plaisir de lecture</p>
-                    <span className="text-pink-600 font-bold">{newReview.impactRating}/10</span>
-                  </div>
-                  <StarRating rating={newReview.impactRating} onRate={(r) => setNewReview({...newReview, impactRating: r})} />
-                </div>
-
-                <div className="bg-gradient-to-r from-pink-100 to-purple-100 p-4 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <p className="font-bold text-gray-800">Note moyenne</p>
-                    <span className="text-2xl font-bold text-pink-600">
-                      {((newReview.styleRating + newReview.intrigueRating + newReview.charactersRating + newReview.impactRating) / 4).toFixed(1)}/10
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               <textarea 
                 placeholder="Commentaire (optionnel)" 
                 value={newReview.comment} 
