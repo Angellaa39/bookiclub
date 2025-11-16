@@ -612,23 +612,20 @@ export default function BookClubTracker() {
                       )}
 
 
-{/* Ligne 1 : pages + prix + année */}
-<div className="flex gap-2 mt-2 text-xs text-gray-500">
+{/* Ligne 1 : pages + prix + année — s’adapte sur mobile */}
+<div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
   <span>📖 {book.pages}p</span>
   {book.price && <span>💰 {book.price}</span>}
   {book.year && <span>📅 {book.year}</span>}
 </div>
 
-{/* Ligne 2 : genres seuls */}
+{/* Ligne 2 : genres — reste en dessous, s’adapte aussi */}
 {book.genres?.length > 0 && (
-  <div className="mt-1 text-xs text-gray-500">
+  <div className="flex flex-wrap mt-1 text-xs text-gray-500">
     🏷️ {book.genres.join(', ')}
   </div>
 )}
-
-
-                  
-
+              
                       {book.reviews?.length > 0 && (
                         <div className="flex items-center gap-2 mt-2">
                           <Star size={14} className="fill-pink-400 text-pink-400" />
