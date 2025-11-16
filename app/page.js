@@ -22,11 +22,28 @@ export default function BookClubTracker() {
   const [isUploading, setIsUploading] = useState(false);
   
   const [newBook, setNewBook] = useState({
-    title: '', author: '', pages: '', price: '', summary: '', coverUrl: '', status: 'toRead', endDate: '', suggestedBy: ''
+    title: '', 
+    author: '', 
+    pages: '', 
+    price: '', 
+    summary: '', 
+    coverUrl: '', 
+    status: 'toRead', 
+    endDate: '', 
+    suggestedBy: '', 
+    year: '', 
+    genres: [],
+    startDate: ''
   });
   
   const [newReview, setNewReview] = useState({
-    member: '', rating: 0, comment: ''
+    member: '', 
+    writing: 0, 
+    plot: 0, 
+    characters: 0, 
+    impact: 0,
+    readingTime: '',
+    comment: ''
   });
 
   const [newQuote, setNewQuote] = useState({
@@ -56,7 +73,10 @@ export default function BookClubTracker() {
         coverUrl: book.cover_url || '',
         status: book.status,
         endDate: book.end_date || '',
+        startDate: book.start_date || '',
         suggestedBy: book.suggested_by || '',
+        year: book.year || '',
+        genres: book.genres || [],
         reviews: book.reviews || [],
         quotes: book.quotes || []
       }));
@@ -81,7 +101,6 @@ export default function BookClubTracker() {
   const handleCoverImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('L\'image est trop grande (max 5MB)');
         return;
@@ -128,7 +147,6 @@ export default function BookClubTracker() {
     try {
       let coverUrl = '';
       
-      // Upload de l'image si présente
       if (coverImageFile) {
         coverUrl = await uploadCoverImage(coverImageFile);
       }
@@ -144,7 +162,10 @@ export default function BookClubTracker() {
           cover_url: coverUrl,
           status: newBook.status,
           end_date: newBook.endDate || null,
-          suggested_by: newBook.suggestedBy || null
+          start_date: newBook.startDate || null,
+          suggested_by: newBook.suggestedBy || null,
+          year: newBook.year || null,
+          genres: newBook.genres || []
         }])
         .select('*, reviews(*), quotes(*)')
         .single();
@@ -161,13 +182,16 @@ export default function BookClubTracker() {
         coverUrl: data.cover_url,
         status: data.status,
         endDate: data.end_date,
+        startDate: data.start_date,
         suggestedBy: data.suggested_by,
+        year: data.year,
+        genres: data.genres,
         reviews: [],
         quotes: []
       };
 
       setBooks([transformedBook, ...books]);
-      setNewBook({ title: '', author: '', pages: '', price: '', summary: '', coverUrl: '', status: 'toRead', endDate: '', suggestedBy: '' });
+      setNewBook({ title: '', author: '', pages: '', price: '', summary: '', coverUrl: '', status: 'toRead', endDate: '', startDate: '', suggestedBy: '', year: '', genres: [] });
       setCoverImageFile(null);
       setCoverImagePreview('');
       setShowAddBook(false);
@@ -181,7 +205,6 @@ export default function BookClubTracker() {
 
   const deleteBook = async (id) => {
     try {
-      // Supprimer l'image du storage si elle existe
       const book = books.find(b => b.id === id);
       if (book?.coverUrl) {
         const fileName = book.coverUrl.split('/').pop();
@@ -207,7 +230,10 @@ export default function BookClubTracker() {
           pages: editingBook.pages,
           price: editingBook.price,
           summary: editingBook.summary,
-          end_date: editingBook.endDate || null
+          end_date: editingBook.endDate || null,
+          start_date: editingBook.startDate || null,
+          year: editingBook.year || null,
+          genres: editingBook.genres || []
         })
         .eq('id', editingBook.id);
 
@@ -237,7 +263,9 @@ export default function BookClubTracker() {
   };
 
   const addReview = async () => {
-    if (!newReview.member || newReview.rating <= 0) return;
+    if (!newReview.member || newReview.writing <= 0 || newReview.plot <= 0 || newReview.characters <= 0 || newReview.impact <= 0) return;
+
+    const averageRating = ((newReview.writing + newReview.plot + newReview.characters + newReview.impact) / 4).toFixed(1);
 
     try {
       const { data, error } = await supabase
@@ -245,7 +273,12 @@ export default function BookClubTracker() {
         .insert([{ 
           book_id: selectedBook.id, 
           member: newReview.member, 
-          rating: newReview.rating, 
+          rating: parseFloat(averageRating),
+          writing: newReview.writing,
+          plot: newReview.plot,
+          characters: newReview.characters,
+          impact: newReview.impact,
+          reading_time: newReview.readingTime || null,
           comment: newReview.comment 
         }])
         .select().single();
@@ -255,7 +288,7 @@ export default function BookClubTracker() {
       const updatedBooks = books.map(b => b.id === selectedBook.id ? updatedBook : b);
       setBooks(updatedBooks);
       setSelectedBook(updatedBook);
-      setNewReview({ member: '', rating: 0, comment: '' });
+      setNewReview({ member: '', writing: 0, plot: 0, characters: 0, impact: 0, readingTime: '', comment: '' });
       setShowAddReview(false);
     } catch (error) {
       console.error('Erreur:', error);
@@ -565,7 +598,10 @@ export default function BookClubTracker() {
                         className="bg-pink-50 p-4 rounded-2xl mb-2 cursor-pointer hover:shadow-md"
                       >
                         <p className="font-bold text-gray-800 mb-1">{review.bookTitle}</p>
-                        <StarRating rating={review.rating} readonly />
+                        <div className="flex items-center gap-1 mb-2">
+                          <Star size={16} className="fill-pink-400 text-pink-400" />
+                          <span className="font-bold text-pink-600">{review.rating}/10</span>
+                        </div>
                         {review.comment && <p className="text-sm mt-2">{review.comment}</p>}
                       </div>
                     ))}
@@ -613,21 +649,64 @@ export default function BookClubTracker() {
                 <p className="text-center text-gray-600 mb-4">{selectedBook.author}</p>
                 
                 <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                  <div className="bg-blue-50 p-4 rounded-2xl">
-                    <p className="text-sm text-gray-600">Pages</p>
-                    <p className="font-semibold">{selectedBook.pages}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-blue-50 p-4 rounded-2xl">
+                      <p className="text-sm text-gray-600 mb-1">📖 Pages</p>
+                      <p className="font-semibold">{selectedBook.pages}</p>
+                    </div>
+                    
+                    {selectedBook.price && (
+                      <div className="bg-green-50 p-4 rounded-2xl">
+                        <p className="text-sm text-gray-600 mb-1">💰 Prix</p>
+                        <p className="font-semibold">{selectedBook.price}</p>
+                      </div>
+                    )}
+                    
+                    {selectedBook.year && (
+                      <div className="bg-purple-50 p-4 rounded-2xl">
+                        <p className="text-sm text-gray-600 mb-1">📅 Année</p>
+                        <p className="font-semibold">{selectedBook.year}</p>
+                      </div>
+                    )}
+
+                    {selectedBook.startDate && (
+                      <div className="bg-indigo-50 p-4 rounded-2xl">
+                        <p className="text-sm text-gray-600 mb-1">▶️ Début</p>
+                        <p className="font-semibold text-sm">{new Date(selectedBook.startDate).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    )}
+
+                    {selectedBook.endDate && (
+                      <div className="bg-teal-50 p-4 rounded-2xl">
+                        <p className="text-sm text-gray-600 mb-1">🏁 Fin</p>
+                        <p className="font-semibold text-sm">{new Date(selectedBook.endDate).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    )}
                   </div>
+
+                  {selectedBook.genres && selectedBook.genres.length > 0 && (
+                    <div className="bg-pink-50 p-4 rounded-2xl">
+                      <p className="text-sm text-gray-600 mb-2">🏷️ Genres</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedBook.genres.map((genre, idx) => (
+                          <span key={idx} className="px-3 py-1 bg-white rounded-full text-sm font-medium text-pink-600">
+                            {genre}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {selectedBook.suggestedBy && (
-                    <div className="bg-purple-50 p-4 rounded-2xl">
-                      <p className="text-sm text-gray-600">Suggéré par</p>
+                    <div className="bg-yellow-50 p-4 rounded-2xl">
+                      <p className="text-sm text-gray-600 mb-1">✨ Suggéré par</p>
                       <p className="font-semibold">{selectedBook.suggestedBy}</p>
                     </div>
                   )}
 
                   {selectedBook.summary && (
-                    <div className="bg-yellow-50 p-4 rounded-2xl">
-                      <p className="text-sm text-gray-600 mb-2">Résumé</p>
+                    <div className="bg-orange-50 p-4 rounded-2xl">
+                      <p className="text-sm text-gray-600 mb-2">📝 Résumé</p>
                       <p className="text-sm">{selectedBook.summary}</p>
                     </div>
                   )}
@@ -675,10 +754,42 @@ export default function BookClubTracker() {
                     </div>
                     {selectedBook.reviews?.map((r, i) => (
                       <div key={i} className="bg-pink-50 p-4 rounded-2xl mb-2">
-                        <div className="flex justify-between mb-2">
-                          <p className="font-bold">{r.member}</p>
-                          <StarRating rating={r.rating} readonly />
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-bold">{r.member}</p>
+                            {r.reading_time && (
+                              <p className="text-xs text-gray-600 mt-1">⏱️ Temps de lecture: {r.reading_time}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-1">
+                              <Star size={16} className="fill-pink-400 text-pink-400" />
+                              <span className="font-bold text-lg text-pink-600">{r.rating}/10</span>
+                            </div>
+                          </div>
                         </div>
+                        
+                        {(r.writing || r.plot || r.characters || r.impact) && (
+                          <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                            <div className="bg-white p-2 rounded-lg">
+                              <p className="text-gray-600">✍️ Écriture</p>
+                              <p className="font-semibold text-pink-600">{r.writing}/10</p>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg">
+                              <p className="text-gray-600">📖 Intrigue</p>
+                              <p className="font-semibold text-pink-600">{r.plot}/10</p>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg">
+                              <p className="text-gray-600">👥 Personnages</p>
+                              <p className="font-semibold text-pink-600">{r.characters}/10</p>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg">
+                              <p className="text-gray-600">💫 Impact</p>
+                              <p className="font-semibold text-pink-600">{r.impact}/10</p>
+                            </div>
+                          </div>
+                        )}
+                        
                         {r.comment && <p className="text-sm">{r.comment}</p>}
                       </div>
                     ))}
@@ -755,6 +866,41 @@ export default function BookClubTracker() {
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
               />
               
+              <input 
+                type="text" 
+                placeholder="Année de publication" 
+                value={newBook.year} 
+                onChange={(e) => setNewBook({...newBook, year: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              
+              <div>
+                <input 
+                  type="text" 
+                  placeholder="Genres (séparés par des virgules)" 
+                  value={newBook.genres.join(', ')}
+                  onChange={(e) => setNewBook({...newBook, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g)})} 
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+                />
+                <p className="text-xs text-gray-500 mt-1 ml-1">Ex: Romance, Fantasy, Thriller</p>
+              </div>
+
+              <input 
+                type="date" 
+                placeholder="Date de début de lecture" 
+                value={newBook.startDate} 
+                onChange={(e) => setNewBook({...newBook, startDate: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+
+              <input 
+                type="date" 
+                placeholder="Date de fin de lecture" 
+                value={newBook.endDate} 
+                onChange={(e) => setNewBook({...newBook, endDate: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              
               <select
                 value={newBook.suggestedBy}
                 onChange={(e) => setNewBook({...newBook, suggestedBy: e.target.value})}
@@ -826,7 +972,7 @@ export default function BookClubTracker() {
 
       {showAddReview && selectedBook && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Ajouter un avis</h2>
             <div className="space-y-4">
               <select 
@@ -837,10 +983,49 @@ export default function BookClubTracker() {
                 <option value="">Sélectionner un membre</option>
                 {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
               </select>
-              <div>
-                <p className="text-sm mb-2">Note sur 10</p>
-                <StarRating rating={newReview.rating} onRate={(r) => setNewReview({...newReview, rating: r})} />
+              
+              <input 
+                type="text" 
+                placeholder="Temps de lecture (ex: 2 semaines, 5 jours...)" 
+                value={newReview.readingTime} 
+                onChange={(e) => setNewReview({...newReview, readingTime: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              
+              <div className="space-y-3">
+                <div className="bg-blue-50 p-4 rounded-xl">
+                  <p className="text-sm font-semibold mb-2">✍️ Écriture & style</p>
+                  <StarRating rating={newReview.writing} onRate={(r) => setNewReview({...newReview, writing: r})} />
+                </div>
+                
+                <div className="bg-purple-50 p-4 rounded-xl">
+                  <p className="text-sm font-semibold mb-2">📖 Intrigue & structure</p>
+                  <StarRating rating={newReview.plot} onRate={(r) => setNewReview({...newReview, plot: r})} />
+                </div>
+                
+                <div className="bg-pink-50 p-4 rounded-xl">
+                  <p className="text-sm font-semibold mb-2">👥 Personnages</p>
+                  <StarRating rating={newReview.characters} onRate={(r) => setNewReview({...newReview, characters: r})} />
+                </div>
+                
+                <div className="bg-yellow-50 p-4 rounded-xl">
+                  <p className="text-sm font-semibold mb-2">💫 Impact & plaisir</p>
+                  <StarRating rating={newReview.impact} onRate={(r) => setNewReview({...newReview, impact: r})} />
+                </div>
+                
+                {(newReview.writing > 0 || newReview.plot > 0 || newReview.characters > 0 || newReview.impact > 0) && (
+                  <div className="bg-gradient-to-r from-pink-100 to-purple-100 p-4 rounded-xl text-center">
+                    <p className="text-sm text-gray-600 mb-1">Note finale</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <Star size={24} className="fill-pink-500 text-pink-500" />
+                      <p className="text-3xl font-bold text-pink-600">
+                        {((newReview.writing + newReview.plot + newReview.characters + newReview.impact) / 4).toFixed(1)}/10
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
+              
               <textarea 
                 placeholder="Commentaire (optionnel)" 
                 value={newReview.comment} 
@@ -931,6 +1116,37 @@ export default function BookClubTracker() {
                 type="text" 
                 value={editingBook.price} 
                 onChange={(e) => setEditingBook({...editingBook, price: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              <input 
+                type="text" 
+                placeholder="Année" 
+                value={editingBook.year || ''} 
+                onChange={(e) => setEditingBook({...editingBook, year: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              <div>
+                <input 
+                  type="text" 
+                  placeholder="Genres (séparés par des virgules)" 
+                  value={editingBook.genres?.join(', ') || ''}
+                  onChange={(e) => setEditingBook({...editingBook, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g)})} 
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+                />
+                <p className="text-xs text-gray-500 mt-1 ml-1">Ex: Romance, Fantasy, Thriller</p>
+              </div>
+              <input 
+                type="date" 
+                placeholder="Date de début" 
+                value={editingBook.startDate || ''} 
+                onChange={(e) => setEditingBook({...editingBook, startDate: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
+              />
+              <input 
+                type="date" 
+                placeholder="Date de fin" 
+                value={editingBook.endDate || ''} 
+                onChange={(e) => setEditingBook({...editingBook, endDate: e.target.value})} 
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none" 
               />
               <textarea 
