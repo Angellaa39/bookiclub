@@ -1,4 +1,3 @@
-// page.js ou BookClubTracker.js
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -17,7 +16,6 @@ import {
   Heart
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-
 
 export default function BookClubTracker() {
   // -----------------------------
@@ -57,7 +55,8 @@ export default function BookClubTracker() {
     suggestedBy: '',
     year: '',
     genres: [],
-    loanStatus: 'notAvailable', // notAvailable | shareable | borrowed
+    volumes: '',          // ← nombre de tomes (champ texte, converti en nombre avant envoi)
+    loanStatus: 'notAvailable', // notAvailable | shareable
     loanTo: '',
     isFavorite: false
   });
@@ -124,6 +123,7 @@ export default function BookClubTracker() {
         suggestedBy: b.suggested_by || '',
         year: b.year || '',
         genres: b.genres || [],
+        volumes: b.volumes || null, // ← mapping nb de tomes
         reviews: b.reviews || [],
         quotes: b.quotes || [],
         loanStatus: b.loan_status || 'notAvailable',
@@ -198,6 +198,7 @@ export default function BookClubTracker() {
       suggestedBy: '',
       year: '',
       genres: [],
+      volumes: '',
       loanStatus: 'notAvailable',
       loanTo: '',
       isFavorite: false
@@ -228,14 +229,30 @@ export default function BookClubTracker() {
         summary: newBook.summary || null,
         cover_url: coverUrl || null,
         status: newBook.status,
-        start_date: newBook.startDate || null,
-        end_date: newBook.endDate || null,
+        start_date:
+          newBook.status === 'bookitheque'
+            ? null
+            : newBook.startDate || null,
+        end_date:
+          newBook.status === 'bookitheque'
+            ? null
+            : newBook.endDate || null,
         suggested_by: newBook.suggestedBy || null,
         year: newBook.year || null,
         genres: newBook.genres || [],
-        loan_status: newBook.loanStatus || 'notAvailable',
-        loan_to: newBook.loanTo || null,
-        is_favorite: newBook.isFavorite || false
+        volumes:
+          newBook.volumes !== ''
+            ? parseInt(newBook.volumes, 10) || null
+            : null,
+        loan_status:
+          newBook.status === 'bookitheque'
+            ? newBook.loanStatus || 'notAvailable'
+            : 'notAvailable',
+        loan_to: null,
+        is_favorite:
+          newBook.status === 'bookitheque'
+            ? newBook.isFavorite || false
+            : false
       };
 
       const { data, error } = await supabase
@@ -260,6 +277,7 @@ export default function BookClubTracker() {
         suggestedBy: data.suggested_by || '',
         year: data.year || '',
         genres: data.genres || [],
+        volumes: data.volumes || null,
         reviews: data.reviews || [],
         quotes: data.quotes || [],
         loanStatus: data.loan_status || 'notAvailable',
@@ -284,7 +302,6 @@ export default function BookClubTracker() {
     try {
       const book = books.find((b) => b.id === bookId);
 
-      // suppression best-effort de la cover
       if (book?.coverUrl) {
         try {
           const fileName = book.coverUrl.split('/').pop();
@@ -309,6 +326,8 @@ export default function BookClubTracker() {
     if (!editingBook) return;
 
     try {
+      const isBookitheque = editingBook.status === 'bookitheque';
+
       const { error } = await supabase
         .from('books')
         .update({
@@ -318,14 +337,26 @@ export default function BookClubTracker() {
           price: editingBook.price || null,
           summary: editingBook.summary || null,
           status: editingBook.status || 'toRead',
-          start_date: editingBook.startDate || null,
-          end_date: editingBook.endDate || null,
+          start_date: isBookitheque
+            ? null
+            : editingBook.startDate || null,
+          end_date: isBookitheque
+            ? null
+            : editingBook.endDate || null,
           suggested_by: editingBook.suggestedBy || null,
           year: editingBook.year || null,
           genres: editingBook.genres || [],
-          loan_status: editingBook.loanStatus || 'notAvailable',
-          loan_to: editingBook.loanTo || null,
-          is_favorite: editingBook.isFavorite || false
+          volumes:
+            editingBook.volumes !== '' && editingBook.volumes != null
+              ? parseInt(editingBook.volumes, 10) || null
+              : null,
+          loan_status: isBookitheque
+            ? editingBook.loanStatus || 'notAvailable'
+            : 'notAvailable',
+          loan_to: isBookitheque ? editingBook.loanTo || null : null,
+          is_favorite: isBookitheque
+            ? editingBook.isFavorite || false
+            : false
         })
         .eq('id', editingBook.id);
 
@@ -370,10 +401,10 @@ export default function BookClubTracker() {
     }
   };
 
-  // Coup de cœur
+  // Coup de cœur (seulement pour Bookithèque)
   const toggleFavorite = async (bookId) => {
     const book = books.find((b) => b.id === bookId);
-    if (!book) return;
+    if (!book || book.status !== 'bookitheque') return;
 
     const newValue = !book.isFavorite;
 
@@ -398,9 +429,9 @@ export default function BookClubTracker() {
     }
   };
 
-  // Prêt
+  // Prêt (seulement Bookithèque)
   const updateLoanStatus = async (book, value) => {
-    if (!book) return;
+    if (!book || book.status !== 'bookitheque') return;
 
     let loanStatus = 'notAvailable';
     let loanTo = null;
@@ -789,10 +820,10 @@ export default function BookClubTracker() {
         <div className="bg-white/90 backdrop-blur rounded-3xl shadow-lg p-8 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              {/* Avatar du club : mets ton image dans /public/club-avatar.png.jpg */}
+              {/* Avatar du club */}
               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md bg-pink-100 flex items-center justify-center">
                 <img
-                  src="/club-avatar.png.jpg"
+                  src="/club-avatar.png"
                   alt="Logo du club de lecture"
                   className="w-full h-full object-cover"
                 />
@@ -831,8 +862,8 @@ export default function BookClubTracker() {
                 }}
                 className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 border transition-all ${
                   activeTab === 'bookitheque'
-      ? "bg-gradient-to-r from-amber-200 to-yellow-300 text-gray-800 shadow-md"
-      : "bg-amber-100 text-gray-700 border border-amber-200 hover:bg-amber-200"
+                    ? 'bg-gradient-to-r from-amber-200 to-yellow-300 text-gray-800 shadow-md'
+                    : 'bg-amber-100 text-gray-700 border border-amber-200 hover:bg-amber-200'
                 }`}
               >
                 📚 Bookithèque
@@ -923,7 +954,7 @@ export default function BookClubTracker() {
                   label: 'Lus',
                   count: readBooks.length,
                   color: 'from-green-400 to-teal-400'
-                },
+                }
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -999,8 +1030,14 @@ export default function BookClubTracker() {
                           </p>
                         )}
 
-                        {/* Ligne 1 : pages / prix / année */}
+                        {/* Ligne 1 : tomes / pages / prix / année */}
                         <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
+                          {book.volumes && (
+                            <span>
+                              📚 {book.volumes} tome
+                              {book.volumes > 1 ? 's' : ''}
+                            </span>
+                          )}
                           <span>📄 {book.pages}p</span>
                           {book.price && <span>💶 {book.price}</span>}
                           {book.year && <span>📅 {book.year}</span>}
@@ -1039,24 +1076,26 @@ export default function BookClubTracker() {
 
                       {/* Actions */}
                       <div className="flex flex-col gap-2 items-end">
-                        {/* Coup de cœur */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(book.id);
-                          }}
-                          className="p-2 rounded-lg hover:bg-pink-100"
-                          title="Coup de cœur"
-                        >
-                          <Heart
-                            size={18}
-                            className={
-                              book.isFavorite
-                                ? 'fill-red-500 text-red-500'
-                                : 'text-gray-300'
-                            }
-                          />
-                        </button>
+                        {/* Coup de cœur : seulement Bookithèque */}
+                        {book.status === 'bookitheque' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(book.id);
+                            }}
+                            className="p-2 rounded-lg hover:bg-pink-100"
+                            title="Coup de cœur"
+                          >
+                            <Heart
+                              size={18}
+                              className={
+                                book.isFavorite
+                                  ? 'fill-red-500 text-red-500'
+                                  : 'text-gray-300'
+                              }
+                            />
+                          </button>
+                        )}
 
                         {/* Statut de lecture */}
                         <button
@@ -1349,20 +1388,24 @@ export default function BookClubTracker() {
                   <h2 className="text-2xl font-bold text-gray-800">
                     {selectedBook.title}
                   </h2>
-                  <button
-                    onClick={() => toggleFavorite(selectedBook.id)}
-                    className="p-2 rounded-full hover:bg-pink-100"
-                    title="Coup de cœur"
-                  >
-                    <Heart
-                      size={22}
-                      className={
-                        selectedBook.isFavorite
-                          ? 'fill-red-500 text-red-500'
-                          : 'text-gray-300'
-                      }
-                    />
-                  </button>
+
+                  {/* Coup de cœur uniquement pour Bookithèque */}
+                  {selectedBook.status === 'bookitheque' && (
+                    <button
+                      onClick={() => toggleFavorite(selectedBook.id)}
+                      className="p-2 rounded-full hover:bg-pink-100"
+                      title="Coup de cœur"
+                    >
+                      <Heart
+                        size={22}
+                        className={
+                          selectedBook.isFavorite
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-gray-300'
+                        }
+                      />
+                    </button>
+                  )}
                 </div>
 
                 <p className="text-center text-gray-600 mb-4">
@@ -1371,6 +1414,19 @@ export default function BookClubTracker() {
 
                 <div className="space-y-4 max-h-[500px] overflow-y-auto">
                   <div className="grid grid-cols-2 gap-3">
+                    {/* Tomes */}
+                    {selectedBook.volumes && (
+                      <div className="bg-amber-50 p-4 rounded-2xl">
+                        <p className="text-sm text-gray-600 mb-1">
+                          📚 Nombre de tomes
+                        </p>
+                        <p className="font-semibold">
+                          {selectedBook.volumes} tome
+                          {selectedBook.volumes > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="bg-blue-50 p-4 rounded-2xl">
                       <p className="text-sm text-gray-600 mb-1">
                         📄 Pages
@@ -1402,25 +1458,27 @@ export default function BookClubTracker() {
                       </div>
                     )}
 
-                    {/* Dates de lecture */}
-                    <div className="col-span-2 grid grid-cols-2 gap-3">
-                      <div className="bg-indigo-50 p-4 rounded-2xl">
-                        <p className="text-sm text-gray-600 mb-1">
-                          🏁 Début
-                        </p>
-                        <p className="font-semibold">
-                          {formatDate(selectedBook.startDate) || '-'}
-                        </p>
+                    {/* Dates de lecture : seulement pour les livres standard */}
+                    {selectedBook.status !== 'bookitheque' && (
+                      <div className="col-span-2 grid grid-cols-2 gap-3">
+                        <div className="bg-indigo-50 p-4 rounded-2xl">
+                          <p className="text-sm text-gray-600 mb-1">
+                            🏁 Début
+                          </p>
+                          <p className="font-semibold">
+                            {formatDate(selectedBook.startDate) || '-'}
+                          </p>
+                        </div>
+                        <div className="bg-indigo-50 p-4 rounded-2xl">
+                          <p className="text-sm text-gray-600 mb-1">
+                            🏁 Fin
+                          </p>
+                          <p className="font-semibold">
+                            {formatDate(selectedBook.endDate) || '-'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-indigo-50 p-4 rounded-2xl">
-                        <p className="text-sm text-gray-600 mb-1">
-                          🏁 Fin
-                        </p>
-                        <p className="font-semibold">
-                          {formatDate(selectedBook.endDate) || '-'}
-                        </p>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Genres */}
@@ -1464,49 +1522,51 @@ export default function BookClubTracker() {
                     </div>
                   )}
 
-                  {/* Section prêt */}
-                  <div className="bg-teal-50 p-4 rounded-2xl">
-                    <p className="text-sm text-gray-600 mb-2">
-                      🤝 Prêt
-                    </p>
-                    <select
-                      value={
-                        selectedBook.loanStatus === 'borrowed' &&
-                        selectedBook.loanTo
-                          ? `borrowed:${selectedBook.loanTo}`
-                          : selectedBook.loanStatus
-                      }
-                      onChange={(e) =>
-                        updateLoanStatus(selectedBook, e.target.value)
-                      }
-                      className="w-full px-4 py-2 rounded-xl border-2 border-teal-100 outline-none bg-white text-sm"
-                    >
-                      <option value="notAvailable">
-                        ❌ Prêt non disponible
-                      </option>
-                      <option value="shareable">
-                        ✅ Peut être prêté
-                      </option>
-                      {members.map((m) => (
-                        <option
-                          key={m.id}
-                          value={`borrowed:${m.name}`}
-                        >
-                          📚 Prêté à {m.name}
+                  {/* Section prêt : uniquement Bookithèque */}
+                  {selectedBook.status === 'bookitheque' && (
+                    <div className="bg-teal-50 p-4 rounded-2xl">
+                      <p className="text-sm text-gray-600 mb-2">
+                        🤝 Prêt
+                      </p>
+                      <select
+                        value={
+                          selectedBook.loanStatus === 'borrowed' &&
+                          selectedBook.loanTo
+                            ? `borrowed:${selectedBook.loanTo}`
+                            : selectedBook.loanStatus
+                        }
+                        onChange={(e) =>
+                          updateLoanStatus(selectedBook, e.target.value)
+                        }
+                        className="w-full px-4 py-2 rounded-xl border-2 border-teal-100 outline-none bg-white text-sm"
+                      >
+                        <option value="notAvailable">
+                          ❌ Prêt non disponible
                         </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs text-gray-500">
-                      Statut actuel:{' '}
-                      {selectedBook.loanStatus === 'notAvailable'
-                        ? 'non disponible'
-                        : selectedBook.loanStatus === 'shareable'
-                        ? 'peut être prêté'
-                        : selectedBook.loanTo
-                        ? `prêté à ${selectedBook.loanTo}`
-                        : 'prêté'}
-                    </p>
-                  </div>
+                        <option value="shareable">
+                          ✅ Peut être prêté
+                        </option>
+                        {members.map((m) => (
+                          <option
+                            key={m.id}
+                            value={`borrowed:${m.name}`}
+                          >
+                            📚 Prêté à {m.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Statut actuel:{' '}
+                        {selectedBook.loanStatus === 'notAvailable'
+                          ? 'non disponible'
+                          : selectedBook.loanStatus === 'shareable'
+                          ? 'peut être prêté'
+                          : selectedBook.loanTo
+                          ? `prêté à ${selectedBook.loanTo}`
+                          : 'prêté'}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Citations */}
                   <div>
@@ -1784,18 +1844,37 @@ export default function BookClubTracker() {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
                 />
                 <input
-                  type="text"
-                  placeholder="Suggéré par (prénom)"
-                  value={newBook.suggestedBy}
+                  type="number"
+                  placeholder="Nombre de tomes"
+                  value={newBook.volumes}
                   onChange={(e) =>
                     setNewBook((prev) => ({
                       ...prev,
-                      suggestedBy: e.target.value
+                      volumes: e.target.value
                     }))
                   }
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
                 />
               </div>
+
+              {/* Suggéré par : sélection d'un membre */}
+              <select
+                value={newBook.suggestedBy}
+                onChange={(e) =>
+                  setNewBook((prev) => ({
+                    ...prev,
+                    suggestedBy: e.target.value
+                  }))
+                }
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none bg-white"
+              >
+                <option value="">Suggéré par…</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
 
               {/* Genres (tags) */}
               <div>
@@ -1833,7 +1912,7 @@ export default function BookClubTracker() {
 
                 <input
                   type="text"
-                  placeholder="Tape un genre puis appuie sur Entrée"
+                  placeholder="Tape un genre puis appuie sur Entrée ou ,"
                   value={newGenreInput}
                   onChange={(e) => setNewGenreInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1853,8 +1932,44 @@ export default function BookClubTracker() {
                 />
               </div>
 
-              {/* Statut (onglet) + prêt initial */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Dates de lecture : seulement si pas Bookithèque */}
+              {newBook.status !== 'bookitheque' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    placeholder="Date de début"
+                    value={newBook.startDate}
+                    onChange={(e) =>
+                      setNewBook((prev) => ({
+                        ...prev,
+                        startDate: e.target.value
+                      }))
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
+                  />
+                  <input
+                    type="date"
+                    placeholder="Date de fin"
+                    value={newBook.endDate}
+                    onChange={(e) =>
+                      setNewBook((prev) => ({
+                        ...prev,
+                        endDate: e.target.value
+                      }))
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Statut (onglet) + prêt initial pour Bookithèque */}
+              <div
+                className={`grid gap-3 ${
+                  newBook.status === 'bookitheque'
+                    ? 'grid-cols-2'
+                    : 'grid-cols-1'
+                }`}
+              >
                 <select
                   value={newBook.status}
                   onChange={(e) =>
@@ -1873,23 +1988,25 @@ export default function BookClubTracker() {
                   </option>
                 </select>
 
-                <select
-                  value={newBook.loanStatus}
-                  onChange={(e) =>
-                    setNewBook((prev) => ({
-                      ...prev,
-                      loanStatus: e.target.value
-                    }))
-                  }
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none bg-white"
-                >
-                  <option value="notAvailable">
-                    ❌ Prêt non disponible
-                  </option>
-                  <option value="shareable">
-                    ✅ Peut être prêté
-                  </option>
-                </select>
+                {newBook.status === 'bookitheque' && (
+                  <select
+                    value={newBook.loanStatus}
+                    onChange={(e) =>
+                      setNewBook((prev) => ({
+                        ...prev,
+                        loanStatus: e.target.value
+                      }))
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none bg-white"
+                  >
+                    <option value="notAvailable">
+                      ❌ Prêt non disponible
+                    </option>
+                    <option value="shareable">
+                      ✅ Peut être prêté
+                    </option>
+                  </select>
+                )}
               </div>
 
               <textarea
@@ -1904,25 +2021,28 @@ export default function BookClubTracker() {
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none h-24 resize-none"
               />
 
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  id="favoriteNew"
-                  type="checkbox"
-                  checked={newBook.isFavorite}
-                  onChange={(e) =>
-                    setNewBook((prev) => ({
-                      ...prev,
-                      isFavorite: e.target.checked
-                    }))
-                  }
-                />
-                <label
-                  htmlFor="favoriteNew"
-                  className="text-sm text-gray-700"
-                >
-                  Marquer comme coup de cœur 💖
-                </label>
-              </div>
+              {/* Coup de cœur initial : seulement Bookithèque */}
+              {newBook.status === 'bookitheque' && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    id="favoriteNew"
+                    type="checkbox"
+                    checked={newBook.isFavorite}
+                    onChange={(e) =>
+                      setNewBook((prev) => ({
+                        ...prev,
+                        isFavorite: e.target.checked
+                      }))
+                    }
+                  />
+                  <label
+                    htmlFor="favoriteNew"
+                    className="text-sm text-gray-700"
+                  >
+                    Marquer comme coup de cœur 💖
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -1934,7 +2054,10 @@ export default function BookClubTracker() {
                 {isUploading ? 'Enregistrement…' : 'Ajouter'}
               </button>
               <button
-                onClick={() => setShowAddBook(false)}
+                onClick={() => {
+                  setShowAddBook(false);
+                  resetNewBookForm();
+                }}
                 className="flex-1 bg-gray-200 px-6 py-3 rounded-xl font-semibold"
               >
                 Annuler
@@ -2007,18 +2130,37 @@ export default function BookClubTracker() {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
                 />
                 <input
-                  type="text"
-                  placeholder="Suggéré par"
-                  value={editingBook.suggestedBy || ''}
+                  type="number"
+                  placeholder="Nombre de tomes"
+                  value={editingBook.volumes ?? ''}
                   onChange={(e) =>
                     setEditingBook((prev) => ({
                       ...prev,
-                      suggestedBy: e.target.value
+                      volumes: e.target.value
                     }))
                   }
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
                 />
               </div>
+
+              {/* Suggéré par en select */}
+              <select
+                value={editingBook.suggestedBy || ''}
+                onChange={(e) =>
+                  setEditingBook((prev) => ({
+                    ...prev,
+                    suggestedBy: e.target.value
+                  }))
+                }
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none bg-white"
+              >
+                <option value="">Suggéré par…</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
 
               {/* Genres (tags) */}
               <div>
@@ -2057,7 +2199,7 @@ export default function BookClubTracker() {
 
                 <input
                   type="text"
-                  placeholder="Tape un genre puis appuie sur Entrée"
+                  placeholder="Tape un genre puis appuie sur Entrée ou ,"
                   value={editGenreInput}
                   onChange={(e) => setEditGenreInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -2076,6 +2218,36 @@ export default function BookClubTracker() {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
                 />
               </div>
+
+              {/* Dates de lecture : seulement si pas Bookithèque */}
+              {editingBook.status !== 'bookitheque' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    placeholder="Date de début"
+                    value={editingBook.startDate || ''}
+                    onChange={(e) =>
+                      setEditingBook((prev) => ({
+                        ...prev,
+                        startDate: e.target.value
+                      }))
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
+                  />
+                  <input
+                    type="date"
+                    placeholder="Date de fin"
+                    value={editingBook.endDate || ''}
+                    onChange={(e) =>
+                      setEditingBook((prev) => ({
+                        ...prev,
+                        endDate: e.target.value
+                      }))
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none"
+                  />
+                </div>
+              )}
 
               <select
                 value={editingBook.status}
@@ -2106,25 +2278,28 @@ export default function BookClubTracker() {
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 outline-none h-24 resize-none"
               />
 
-              <div className="flex items-center gap-2">
-                <input
-                  id="favoriteEdit"
-                  type="checkbox"
-                  checked={!!editingBook.isFavorite}
-                  onChange={(e) =>
-                    setEditingBook((prev) => ({
-                      ...prev,
-                      isFavorite: e.target.checked
-                    }))
-                  }
-                />
-                <label
-                  htmlFor="favoriteEdit"
-                  className="text-sm text-gray-700"
-                >
-                  Coup de cœur 💖
-                </label>
-              </div>
+              {/* Coup de cœur : seulement si Bookithèque */}
+              {editingBook.status === 'bookitheque' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    id="favoriteEdit"
+                    type="checkbox"
+                    checked={!!editingBook.isFavorite}
+                    onChange={(e) =>
+                      setEditingBook((prev) => ({
+                        ...prev,
+                        isFavorite: e.target.checked
+                      }))
+                    }
+                  />
+                  <label
+                    htmlFor="favoriteEdit"
+                    className="text-sm text-gray-700"
+                  >
+                    Coup de cœur 💖
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">
