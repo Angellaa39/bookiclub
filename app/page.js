@@ -924,13 +924,6 @@ export default function BookClubTracker() {
                   count: readBooks.length,
                   color: 'from-green-400 to-teal-400'
                 },
-                {
-                  key: 'bookitheque',
-                  icon: Sparkles,
-                  label: 'Bookithèque',
-                  count: bookithequeBooks.length,
-                  color: 'from-purple-500 to-blue-500'
-                }
               ].map((tab) => (
                 <button
                   key={tab.key}
