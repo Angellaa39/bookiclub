@@ -823,7 +823,7 @@ export default function BookClubTracker() {
               {/* Avatar du club */}
               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md bg-pink-100 flex items-center justify-center">
                 <img
-                  src="/club-avatar.png"
+                  src="club-avatar.png.jpg"
                   alt="Logo du club de lecture"
                   className="w-full h-full object-cover"
                 />
