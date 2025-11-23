@@ -831,8 +831,8 @@ export default function BookClubTracker() {
                 }}
                 className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 border transition-all ${
                   activeTab === 'bookitheque'
-                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                    : 'bg-white text-purple-600 border-purple-200 hover:bg-purple-50'
+      ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg"
+      : "bg-white text-orange-600 border border-orange-200 hover:bg-orange-50"
                 }`}
               >
                 📚 Bookithèque
