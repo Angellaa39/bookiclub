@@ -789,10 +789,10 @@ export default function BookClubTracker() {
         <div className="bg-white/90 backdrop-blur rounded-3xl shadow-lg p-8 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              {/* Avatar du club : mets ton image dans /public/club-avatar.png */}
+              {/* Avatar du club : mets ton image dans /public/club-avatar.png.jpg */}
               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md bg-pink-100 flex items-center justify-center">
                 <img
-                  src="/club-avatar.png"
+                  src="/club-avatar.png.jpg"
                   alt="Logo du club de lecture"
                   className="w-full h-full object-cover"
                 />
@@ -831,8 +831,8 @@ export default function BookClubTracker() {
                 }}
                 className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 border transition-all ${
                   activeTab === 'bookitheque'
-      ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg"
-      : "bg-white text-orange-600 border border-orange-200 hover:bg-orange-50"
+      ? "bg-gradient-to-r from-amber-200 to-yellow-300 text-gray-800 shadow-md"
+      : "bg-amber-100 text-gray-700 border border-amber-200 hover:bg-amber-200"
                 }`}
               >
                 📚 Bookithèque
